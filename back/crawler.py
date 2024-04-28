@@ -215,8 +215,9 @@ class PinterestCrawler(BaseCrawler):
         desks = []
         for fetched_desk in resource_response["data"]["results"]:
             desk = {
-                "url": fetched_desk["images"]["orig"]["url"],
-                "name": str(fetched_desk["id"])
+                "filename": str(fetched_desk["id"]),
+                "src_url": fetched_desk["images"]["orig"]["url"],
+                "landing": fetched_desk["link"] 
             }
             desks.append(desk)
         return desks
@@ -284,18 +285,16 @@ if __name__ == "__main__":
     from config_loader import config
 
     train_path = config["PATH"]["train"]
+    
+    for i in range(8):
+        desk_crawler = OhouseCrawler(train_path, "데스크테리어", resize=(256, 256), style=i, num_workers=16, verbose=True)
+        desk_crawler.crawling()
 
-    # styles = ["모던", "북유럽", "빈티지", "내추럴", "프로방스&로맨틱", "클래식&앤틱", "한국&아시아", "유니크"]
-    # for i, style in enumerate(styles):
-    #     path = os.path.join(train_path, style)
-    #     print(path)
-    #     desk_crawler = OhouseCrawler(path, "데스크테리어", style=i, verbose=True)
-    #     desk_crawler.crawling()
+    # desk_crawler = PinterestCrawler(train_path, "desk interior", resize=(256, 256), verbose=True)
+    # desk_crawler.crawling()
 
-    # desk_crawler = PinterestCrawler(train_path, "desk interior", verbose=True)
-
-    categories = ["28070000"]
-    for category_id in categories:
-        path = os.path.join(train_path, category_id)
-        item_crawler = OhouseItemCrawler(path, category_id, resize=(256, 256), verbose=True)
-        item_crawler.crawling()
+    # categories = ["28070000"]
+    # for category_id in categories:
+    #     path = os.path.join(train_path, category_id)
+    #     item_crawler = OhouseItemCrawler(path, category_id, resize=(256, 256), verbose=True)
+    #     item_crawler.crawling()
