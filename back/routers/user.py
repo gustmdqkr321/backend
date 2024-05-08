@@ -238,3 +238,11 @@ async def delete_notification(
 ):
     await crud.delete_notifications(db, user_id)
     return {"message": "Notification deleted successfully"}
+
+@router.post("/password")
+async def get_user_password(user_id: str, db: Session = Depends(get_db)):
+    user = await crud.read_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {"user_id": user.user_id, "password": user.hashed_password}
