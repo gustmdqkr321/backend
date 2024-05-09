@@ -18,7 +18,7 @@ class Img2Vec:
 
 
 class Feat2Vec(Img2Vec):
-    def __init__(self, model, transform=None, batch_size=32, verbose=False):
+    def __init__(self, model, transform=None, batch_size=32, resize=(256, 256), verbose=False):
         self.batch_size = batch_size
         self.verbose = verbose
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -31,7 +31,7 @@ class Feat2Vec(Img2Vec):
             self.preprocess = transform
         else:
             self.preprocess = transforms.Compose([
-                transforms.Resize((256, 256)),
+                transforms.Resize(resize),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ])

@@ -140,3 +140,11 @@ class DesignImage(BaseModel):
 class RatedImage(BaseModel):
     index: int
     rating: int
+
+
+class ItemImage(BaseModel):
+    name: str
+    src_url: str
+    landing: str
+    
+    model_config = ConfigDict(from_attributes=True)

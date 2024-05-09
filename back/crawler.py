@@ -9,7 +9,9 @@ import threading
 from io import BytesIO
 
 from mimetypes import guess_extension
+import numpy as np
 from PIL import Image
+import cv2
 from pillow_heif import register_heif_opener
 
 from sqlalchemy.orm import scoped_session
@@ -278,9 +280,10 @@ class OhouseItemCrawler(BaseCrawler):
         for fetched_item in fetched_items:
             url = fetched_item["original_image_url"]
             item = {
-                "filename": re.search(r'/([^/]*)\.([^.]*)$', url).group(1),
+                "name": fetched_item["name"],
                 "src_url": url,
-                "landing": self.landing_url.format(fetched_item["id"])
+                "landing": self.landing_url.format(fetched_item["id"]),
+                "category_id": self.category_id
             }
             items.append(item)
 
@@ -288,6 +291,51 @@ class OhouseItemCrawler(BaseCrawler):
             self.finished = True
 
         return items
+
+    def download_image(self, image):
+        url = image["src_url"]
+        session = create_retry_session()
+        response = session.get(url)
+        if response.status_code != 200:
+            return False
+
+        file_extension = guess_extension(response.headers.get("content-type"))
+        image_data = response.content
+
+        if file_extension is None:
+            return False
+
+        image_data = self.validate_image_data(image_data)
+        if not image_data:
+            return False
+        
+        color = self.extract_color(image_data)
+        image["color"] = color
+
+        ret = self.to_db(image)
+        return ret
+
+    def extract_color(self, image):
+        image = np.array(image)
+        image = cv2.resize(image, (100, 100))
+        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+        edges = cv2.Canny(blurred, 50, 100)
+        contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:max(1, len(contours)//2)]
+
+        mask = np.zeros_like(gray)
+        for contour in contours:
+            cv2.drawContours(mask, [contour], -1, 255, -1)
+
+        kernel = np.ones((5, 5), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        image_without_bg = cv2.bitwise_and(image, image, mask=mask)
+
+        colors = image_without_bg[image_without_bg.sum(axis=2) != 0]
+        main_color = np.median(colors, axis=0).astype(np.uint8)
+        return main_color
 
     def to_db(self, image):
         try:
@@ -308,15 +356,47 @@ if __name__ == "__main__":
     path = config["PATH"]["train"]
     os.makedirs(path, exist_ok=True)
 
-    styles = ["모던", "북유럽", "빈티지", "내추럴", "프로방스&로맨틱", "클래식&앤틱", "한국&아시아", "유니크"]
-    for i, style in enumerate(styles):
-        desk_crawler = OhouseCrawler(path, "데스크테리어", style=i, verbose=True, resize=(224, 224))
-        desk_crawler.crawling()
+    # # styles = ["모던", "북유럽", "빈티지", "내추럴", "프로방스&로맨틱", "클래식&앤틱", "한국&아시아", "유니크"]
+    # # for i, style in enumerate(styles):
+    # #     desk_crawler = OhouseCrawler(path, "데스크테리어", style=i, verbose=True, resize=(224, 224))
+    # #     desk_crawler.crawling()
 
-    # desk_crawler = PinterestCrawler(train_path, "desk interior", verbose=True)
+    # # desk_crawler = PinterestCrawler(train_path, "desk interior", verbose=True)
 
-    # categories = ["28070000"]
-    # for category_id in categories:
-    #     path = os.path.join(train_path, category_id)
-    #     item_crawler = OhouseItemCrawler(path, category_id, resize=(256, 256), verbose=True)
-    #     item_crawler.crawling()
+    categories = ["28070000"]
+    for category_id in categories:
+        path = os.path.join(path, category_id)
+        item_crawler = OhouseItemCrawler(path, category_id, verbose=True)
+        item_crawler.crawling()
+
+    # image_url = "https://bucketplace-v2-development.s3.amazonaws.com/uploads/productions/168076630197287303.jpg"
+    # session = create_retry_session()
+    # response = session.get(image_url)
+
+    # image_data = response.content
+    # image = Image.open(BytesIO(image_data))
+    # pixels = image.load()
+    # image = image.convert("RGB")
+    # image_data = image_data
+
+    # image = np.array(image)
+    # image = cv2.resize(image, (100, 100))
+    # gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    # blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # edges = cv2.Canny(blurred, 50, 100)
+    # contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # print(len(contours))
+    # contours = sorted(contours, key=cv2.contourArea, reverse=True)[:max(1, len(contours)//2)]
+
+    # mask = np.zeros_like(gray)
+    # for contour in contours:
+    #     cv2.drawContours(mask, [contour], -1, 255, -1)
+
+    # kernel = np.ones((5, 5), np.uint8)
+    # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    # image_without_bg = cv2.bitwise_and(image, image, mask=mask)
+
+    # colors = image_without_bg[image_without_bg.sum(axis=2) != 0]
+    # main_color = np.median(colors, axis=0).astype(np.uint8)
+    # print(main_color)

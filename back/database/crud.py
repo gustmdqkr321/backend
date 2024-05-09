@@ -6,7 +6,7 @@ from sqlalchemy.orm import (
     subqueryload,
     with_expression,
 )
-from sqlalchemy.sql import alias, select, column, func
+from sqlalchemy.sql import alias, select, column
 from database.models import *
 from database.schemas import *
 
@@ -529,3 +529,6 @@ async def read_random_design_images(db: Session, n: int):
 
 async def read_design_images(db: Session, i: int):
     return db.query(DesignImages).filter(DesignImages.index == i).first()
+
+async def read_item_images(db: Session, color: list):
+    return db.query(ItemImages).order_by(ItemImages.color.l2_distance(color)).limit(5).all()

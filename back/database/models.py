@@ -290,8 +290,9 @@ class DesignImages(Base):
 class ItemImages(Base):
     __tablename__ = "item_images"
 
-    filename = Column(String, primary_key=True)
+    name = Column(String, primary_key=True)
 
-    index = Column(Integer, nullable=True)
     src_url = Column(String, unique=True)
     landing = Column(String, nullable=False)
+    color = Column(Vector(3))
+    category_id = Column(Integer)
